@@ -1,3 +1,4 @@
+from cmath import rect
 import pygame
 from pygame.sprite import Sprite
 
@@ -8,6 +9,7 @@ class Alien(Sprite):
         """initalize the alien and its pos"""
         super().__init__()
         self.screen = alien_game.screen
+        self.settings = alien_game.settings
 
         #this is the alien image
         self.image = pygame.image.load('aliens/images/alien.bmp')
@@ -19,3 +21,14 @@ class Alien(Sprite):
 
         #storing an alien's x pos
         self.x = float(self.rect.x)
+    
+    def check_edges(self):
+        """returns true if alien reaches edge of screen"""
+        screen_rect = self.screen.get_rect()
+        if self.rect.right >= screen_rect.right or self.rect.left <= 0:
+            return True
+
+    def update(self):
+        """move alien to right/left"""
+        self.x += (self.settings.alien_speed * self.settings.fleet_direction)
+        self.rect.x = self.x

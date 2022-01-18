@@ -4,6 +4,9 @@ from settings import Settings
 from ship import Ship
 from bullet import Bullet
 from alien import Alien
+from time import sleep
+from stats import Stats
+from button import Button
 
 class Aliens: 
     """this class manages game behavior and assets """
@@ -22,18 +25,25 @@ class Aliens:
         self.screen = pygame.display.set_mode((1200, 800))
         pygame.display.set_caption("aliens aliens aliens!")
 
+        self.stats = Stats(self)
+
         self.ship = Ship(self)
         self.bullets = pygame.sprite.Group()
         self.aliens = pygame.sprite.Group()
 
         self._create_fleet()
+        self.play_button = Button(self, "play")
 
     def run_game(self):
         """Starting the main loop"""
         while True:
             self._check_events()
-            self.ship.update()
-            self._update_bullets()
+
+            if self.stats.game_active:
+                self.ship.update()
+                self._update_bullets()
+                self._update_aliens()
+                
             self._update_screen()
 
     def _check_events(self):
@@ -41,11 +51,18 @@ class Aliens:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 sys.exit()
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_pos = pygame.mouse.get_pos()
+                self._check_play_button(mouse_pos)
 
             elif event.type == pygame.KEYDOWN:
                 self._check_keydown_events(event)
             elif event.type == pygame.KEYUP:
                 self._check_keyup_events(event)
+
+    def _check_play_button(self, mouse_pos):
+        if self.play_button.rect.collidepoint(mouse_pos):
+            self.stats.game_active = True
 
     def _check_keydown_events(self, event):
         """responds to keypress"""
@@ -79,6 +96,14 @@ class Aliens:
         for bullet in self.bullets.copy():
                 if bullet .rect.bottom <= 0:
                     self.bullets.remove(bullet)
+        self._check_bullet_alien_collision()
+
+    def _check_bullet_alien_collision(self):
+        collisions = pygame.sprite.groupcollide(
+            self.bullets, self.aliens, True, True)
+        if not self.aliens:
+            self.bullets.empty()
+            self._create_fleet()
 
     def _create_fleet(self):
         """creating a fleet of aliens"""
@@ -103,6 +128,51 @@ class Aliens:
         alien.rect.y = alien_height + 2 * alien.rect.height *row_num
         self.aliens.add(alien)
 
+    def _check_fleet_edges(self):
+        """respond if aliens reach edge of screen"""
+        for alien in self.aliens.sprites():
+            if alien.check_edges():
+                self._change_fleet_direction()
+                break
+    
+    def _change_fleet_direction(self):
+        for alien in self.aliens.sprites():
+            alien.rect.y += self.settings.fleet_drop_speed
+        self.settings.fleet_direction *= -1
+
+    def _update_aliens(self):
+        """update the pos of the fleet of aliens"""
+            
+        self._check_fleet_edges()
+        self.aliens.update()
+
+        if pygame.sprite.spritecollideany(self.ship, self.aliens):
+            self._ship_hit()
+        
+        self._check_aliens_bottom()
+
+    def _ship_hit(self):
+
+        print("Ship hit!")
+
+        if self.stats.ships_left > 0: 
+            self.stats.ships_left -= 1
+            self.aliens.empty()
+            self.bullets.empty()
+            self._create_fleet()
+            self.ship.center_ship()
+        else:
+            self.stats.game_active = False
+
+        sleep(0.5)
+
+    def _check_aliens_bottom(self):
+        screen_rect = self.screen.get_rect()
+        for alien in self.aliens.sprites():
+            if alien.rect.bottom >= screen_rect.bottom:
+                self._ship_hit()
+                break
+
     def _update_screen(self):
         """update images on screen, flips to new screen"""
         self.screen.fill(self.bg_color)
@@ -111,8 +181,12 @@ class Aliens:
             bullet.draw_bullet()
         self.aliens.draw(self.screen)
 
+        if not self.stats.game_active:
+            self.play_button.draw_button()
+            
         #displays the most recently drawn screen
         pygame.display.flip()
+
 
 if __name__ == '__main__':
     #instantiate and run the game
