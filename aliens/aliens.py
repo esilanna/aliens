@@ -7,6 +7,7 @@ from alien import Alien
 from time import sleep
 from stats import Stats
 from button import Button
+from scoreboard import Scoreboard
 
 class Aliens: 
     """this class manages game behavior and assets """
@@ -26,6 +27,7 @@ class Aliens:
         pygame.display.set_caption("aliens aliens aliens!")
 
         self.stats = Stats(self)
+        self.sb = Scoreboard(self)
 
         self.ship = Ship(self)
         self.bullets = pygame.sprite.Group()
@@ -61,8 +63,21 @@ class Aliens:
                 self._check_keyup_events(event)
 
     def _check_play_button(self, mouse_pos):
-        if self.play_button.rect.collidepoint(mouse_pos):
+        button_clicked = self.play_button.rect.collidepoint(mouse_pos)
+        if button_clicked and not self.stats.game_active:
+
+            self.settings.initalize_dynamic_settings()
+            self.stats.reset_stats()
             self.stats.game_active = True
+            self.sb.prep_score()
+
+            self.aliens.empty()
+            self.bullets.empty()
+
+            self._create_fleet()
+            self.ship.center_ship()
+
+            pygame.mouse.set_visible(False)
 
     def _check_keydown_events(self, event):
         """responds to keypress"""
@@ -101,9 +116,16 @@ class Aliens:
     def _check_bullet_alien_collision(self):
         collisions = pygame.sprite.groupcollide(
             self.bullets, self.aliens, True, True)
+
+        if collisions:
+            for aliens in collisions.values():
+                self.stats.score += self.settings.alien_points
+            self.sb.prep_score()
+
         if not self.aliens:
             self.bullets.empty()
             self._create_fleet()
+            self.settings.increase_speed()
 
     def _create_fleet(self):
         """creating a fleet of aliens"""
@@ -163,6 +185,7 @@ class Aliens:
             self.ship.center_ship()
         else:
             self.stats.game_active = False
+            pygame.mouse.set_visible(True)
 
         sleep(0.5)
 
@@ -179,7 +202,10 @@ class Aliens:
         self.ship.blitme()
         for bullet in self.bullets.sprites():
             bullet.draw_bullet()
+
         self.aliens.draw(self.screen)
+
+        self.sb.show_score()
 
         if not self.stats.game_active:
             self.play_button.draw_button()
